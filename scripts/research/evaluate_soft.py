@@ -2,7 +2,7 @@ import json
 import difflib
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-from src.predictor import ProductExtractor
+from services.inference import ProductExtractor
 
 def load_test_data(filepath="data/processed/manual_dataset.json"):
     """Загружаем данные и берем ТОЛЬКО тестовую часть (те же 15%, что при обучении)"""
