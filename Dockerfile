@@ -28,6 +28,8 @@ COPY data/ ./data/
 # Result (папка models/final_model) remains into the image.
 RUN python -m scripts.research.train
 
+# EXPLICITLY SPECIFY THE PATH TO THE ROOT OF THE PROJECT
+ENV PYTHONPATH=/app
 # 9. Final Launch Command (API)
 # The API will load the model already located in models/final_model
 EXPOSE 8000
