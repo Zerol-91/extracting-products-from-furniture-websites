@@ -4,27 +4,25 @@ import numpy as np
 from datasets import Dataset, DatasetDict
 from transformers import AutoTokenizer
 
-# Константы для маппинга лейблов
-# O = Outside (не товар), B = Beginning (начало), I = Inside (продолжение)
+# Constants for label mapping
+# O = Outside (not a product), B = Beginning, I = Inside (continuation)
 LABEL_LIST = ["O", "B-PROD", "I-PROD"]
 LABEL2ID = {label: i for i, label in enumerate(LABEL_LIST)}
 ID2LABEL = {i: label for i, label in enumerate(LABEL_LIST)}
 
-# Используем "DistilRoBERTa" или "DistilBERT" - они быстрые и легкие
-# RoBERTa часто лучше работает с "грязным" вебом
+# Use "DistilBERT" - it is fast and easy
 MODEL_CHECKPOINT = "distilbert-base-uncased" 
 
 def load_raw_data(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
-    # Фильтруем пустые или те, где нет продуктов (для обучения NER нам нужны примеры с сущностями, 
-    # хотя пустые тоже полезны для negative sampling, но пока возьмем 80% с сущностями)
+    # Filter out empty ones or those where there are no products (for training NER we need examples with entities
     return [x for x in data if x['text']]
 
 def find_span_indices(text, product_name):
     """
-    Ищет начало и конец подстроки product_name в text.
-    Возвращает (start_char, end_char) или None.
+    Finds the beginning and end of the substring product_name in text.
+    Returns (start_char, end_char) or None.
     """
     start_idx = text.find(product_name)
     if start_idx == -1:
@@ -33,18 +31,17 @@ def find_span_indices(text, product_name):
 
 def create_bio_tags(example):
     """
-    Превращает текст и список продуктов в список тегов для каждого слова.
-    Это упрощенная токенизация по пробелам для предварительной разметки.
+    Converts text and product lists into a list of tags for each word.
+    This is a simplified whitespace tokenization for pre-tagging.
     """
     text = example['text']
     products = example['products']
     
-    # Сначала создаем список символьных меток (0 - ничего, 1 - начало, 2 - продолжение)
-    # Это "Character-level masks"
+    # First, we create a list of character labels (0 - nothing, 1 - start, 2 - continue)
+    # These are "Character-level masks"
     char_labels = [0] * len(text)
     
     for prod in products:
-        # Важно: strip() убирает лишние пробелы, которые могут мешать поиску
         clean_prod = prod.strip()
         if not clean_prod: 
             continue
@@ -52,9 +49,9 @@ def create_bio_tags(example):
         span = find_span_indices(text, clean_prod)
         if span:
             start, end = span
-            # B-tag для первого символа
+            # B-tag for first character 
             char_labels[start] = 1 
-            # I-tag для остальных
+            # I-tag for the rest
             for i in range(start + 1, end):
                 char_labels[i] = 2
     
@@ -62,7 +59,7 @@ def create_bio_tags(example):
 
 def tokenize_and_align_labels(examples):
     """
-    Перенос char_labels на токены BERT.
+    Migrating char_labels to BERT tokens.
     """
     tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT)
     
@@ -70,9 +67,9 @@ def tokenize_and_align_labels(examples):
         examples["text"], 
         truncation=True, 
         padding="max_length", 
-        max_length=512, # Обрезаем длинные сайты, BERT больше не ест
-        is_split_into_words=False, # Мы подаем сырой текст
-        return_offsets_mapping=True # Важно! Возвращает позиции токенов в исходном тексте
+        max_length=512, # Cutting down long websites
+        is_split_into_words=False, # submit the raw text
+        return_offsets_mapping=True # Returns the tokens' position in the source text.
     )
 
     labels = []
@@ -82,20 +79,20 @@ def tokenize_and_align_labels(examples):
         doc_labels = []
         
         for start_char, end_char in offsets:
-            # Спецтокены ([CLS], [SEP]) имеют offset (0, 0)
+            # Special tokens ([CLS], [SEP]) have offset (0, 0)
             if start_char == end_char == 0:
-                doc_labels.append(-100) # -100 игнорируется при расчете Loss
+                doc_labels.append(-100) # -100 ignored when calculating Loss
                 continue
             
-            # Если хотя бы один символ внутри токена помечен как товар -> это товар
-            # Берем метку из середины токена или начала
+            # If at least one character within the token is marked as a product -> it is a product
+            # Take the label from the middle of the token or from the beginning
             token_label = 0
             
-            # Проверяем, попадает ли токен на сущность
-            # Если начало токена совпадает с началом сущности (1) -> B-PROD
+            # Checking if the token matches the entity
+            # If the beginning of the token coincides with the beginning of the entity (1) -> B-PROD
             if char_label[start_char] == 1:
                 token_label = LABEL2ID["B-PROD"]
-            # Если внутри сущности (2) -> I-PROD
+            # If inside the entity (2) -> I-PROD
             elif char_label[start_char] == 2:
                 token_label = LABEL2ID["I-PROD"]
             
@@ -109,32 +106,32 @@ def tokenize_and_align_labels(examples):
 def prepare_datasets(json_path="data/processed/manual_dataset.json"):
     raw_data = load_raw_data(json_path)
     
-    # 1. Добавляем BIO теги на уровне символов
+    # 1. Adding BIO tags at the character level
     processed_data = [create_bio_tags(x) for x in raw_data]
     
-    # 2. Конвертируем в HF Dataset
+    # 2. converting into the HF Dataset
     hf_dataset = Dataset.from_list(processed_data)
     
-    # 3. Делим на Train / Test (85% / 15%)
-    # seed=42 для воспроизводимости
+    # 3. splitting Train / Test (85% / 15%)
+    # seed=42 for reproducibility
     split_dataset = hf_dataset.train_test_split(test_size=0.15, seed=42)
     
     print(f"Train size: {len(split_dataset['train'])}")
     print(f"Test size: {len(split_dataset['test'])}")
     
-    # 4. Токенизация и выравнивание (Map - это быстро)
-    # batched=True ускоряет процесс
+    # 4. Tokenization and alignment 
+    # batched=True speeds up the process
     tokenized_datasets = split_dataset.map(
         tokenize_and_align_labels, 
         batched=True, 
-        remove_columns=["text", "char_labels", "orig_products"] # Удаляем сырые данные, оставляем тензоры
+        remove_columns=["text", "char_labels", "orig_products"] # remove raw data, leaving tensors
     )
     
     return tokenized_datasets
 
 if __name__ == "__main__":
-    # Тестовый запуск
+    # Test run
     ds = prepare_datasets()
-    print("Пример токенов:", ds['train'][0]['input_ids'][:10])
-    print("Пример лейблов:", ds['train'][0]['labels'][:10])
-    print("Успех! Данные готовы к скармливанию BERTу.")
+    print("Example of tokens:", ds['train'][0]['input_ids'][:10])
+    print("Example of labels:", ds['train'][0]['labels'][:10])
+    print("Success! The data is ready to be fed to BERT.")

@@ -53,6 +53,8 @@ class InferenceService:
             if res['entity_group'] == 'PROD' and res['score'] > CONFIDENCE_THRESHOLD:
                 word = res['word'].strip()
                 
+                word = word.replace("##", "")
+                
                 # Basic heuristics
                 if len(word) < 3 or not any(c.isalpha() for c in word):
                     continue

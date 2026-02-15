@@ -5,31 +5,31 @@ from tqdm import tqdm
 from services.inference import ProductExtractor
 
 def load_test_data(filepath="data/processed/manual_dataset.json"):
-    """Загружаем данные и берем ТОЛЬКО тестовую часть (те же 15%, что при обучении)"""
+    """We load the data and take ONLY the test portion (the same 15% as during training)"""
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
     
-    # Фильтруем пустые, как делали в обучении
+    # Filter empty ones as training
     data = [x for x in data if x['text']]
     
-    # Важно! random_state=42 должен совпадать с train.py, чтобы данные были те же
+    # random_state=42 must match train.py to ensure the same data
     _, test_data = train_test_split(data, test_size=0.15, random_state=42)
     return test_data
 
 def is_soft_match(pred, truth, threshold=0.6):
     """
-    Проверяет, похожи ли строки.
-    1. Если одна внутри другой (Substring) -> True
-    2. Если сходство символов > 60% (Levenshtein) -> True
+    Checks if strings are similar.
+    1. If one is inside the other (Substring) -> True
+    2. If the character similarity is > 60% (Levenshtein) -> True
     """
     pred_clean = pred.lower().strip()
     truth_clean = truth.lower().strip()
     
-    # Проверка на подстроку
+    # Checking for a substring
     if pred_clean in truth_clean or truth_clean in pred_clean:
         return True
         
-    # Проверка на похожесть (опечатки, лишние слова)
+    # Check for similarities (typos, extra words)
     similarity = difflib.SequenceMatcher(None, pred_clean, truth_clean).ratio()
     return similarity >= threshold
 
@@ -38,38 +38,38 @@ def calculate_soft_metrics(extractor, test_data):
     total_fp = 0
     total_fn = 0
     
-    print(f"Запуск валидации на {len(test_data)} примерах...\n")
+    print(f"Running validation on {len(test_data)} examples...\n")
 
     for item in tqdm(test_data):
         text = item['text']
-        true_products = set(item['products']) # Истинные товары
+        true_products = set(item['products']) # True goods
         
-        # Предсказание модели
+        # Model Prediction
         pred_products = set(extractor.predict(text))
         
-        # Считаем метрики для одного документа
-        # Создаем копии сетов, чтобы удалять найденное
+        # Calculating metrics for one document
+        # create copies of sets to delete found ones
         local_tp = 0
         unmatched_true = list(true_products)
         
-        # Проверяем каждое предсказание
+        # checks every prediction
         for pred in pred_products:
             match_found = False
             for true_prod in unmatched_true:
                 if is_soft_match(pred, true_prod):
                     match_found = True
-                    unmatched_true.remove(true_prod) # Убираем, чтобы не посчитать дважды
+                    unmatched_true.remove(true_prod) # removes it so as not to count twice
                     break
             
             if match_found:
                 local_tp += 1
             else:
-                total_fp += 1 # Предсказал, но такого нет в разметке
+                total_fp += 1 # predicted it, but it's not in the markup.
         
         total_tp += local_tp
-        total_fn += len(unmatched_true) # То, что осталось ненайденным
+        total_fn += len(unmatched_true) # What remains undiscovered
 
-    # Итоговые метрики
+    # Final metrics
     precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
     recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
@@ -84,24 +84,24 @@ def calculate_soft_metrics(extractor, test_data):
     }
 
 if __name__ == "__main__":
-    # Загружаем модель
+    # Loading the model
     print("Загрузка модели...")
     extractor = ProductExtractor()
     
-    # Загружаем данные
+    # Loading the data
     test_data = load_test_data()
     
-    # Считаем
+    # counts
     metrics = calculate_soft_metrics(extractor, test_data)
     
     print("\n" + "="*30)
-    print("📊 РЕЗУЛЬТАТЫ SOFT MATCHING")
+    print("📊 RESULTS SOFT MATCHING")
     print("="*30)
-    print(f"Precision (Точность): {metrics['precision']:.2%}")
-    print(f"Recall (Полнота):     {metrics['recall']:.2%}")
+    print(f"Precision: {metrics['precision']:.2%}")
+    print(f"Recall:     {metrics['recall']:.2%}")
     print(f"F1 Score (Soft):      {metrics['f1']:.2%}")
     print("-" * 30)
-    print(f"Найдено верно (TP):   {metrics['tp']}")
-    print(f"Лишний шум (FP):      {metrics['fp']}")
-    print(f"Пропущено (FN):       {metrics['fn']}")
+    print(f"Found correctly (TP):   {metrics['tp']}")
+    print(f"Excessive noise (FP):      {metrics['fp']}")
+    print(f"Missed (FN):       {metrics['fn']}")
     print("="*30)
