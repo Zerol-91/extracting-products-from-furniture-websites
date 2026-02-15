@@ -3,9 +3,10 @@ import requests
 import pandas as pd
 import time
 import logging
+import os
 
 # --- CONFIGURATION ---
-API_URL = "http://127.0.0.1:8000/extract"
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/extract")
 PAGE_TITLE = "Furniture NER Extractor"
 PAGE_ICON = "🪑"
 

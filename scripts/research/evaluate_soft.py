@@ -2,7 +2,7 @@ import json
 import difflib
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-from services.inference import ProductExtractor
+from src.services.inference import InferenceService
 
 def load_test_data(filepath="data/processed/manual_dataset.json"):
     """We load the data and take ONLY the test portion (the same 15% as during training)"""
@@ -86,7 +86,7 @@ def calculate_soft_metrics(extractor, test_data):
 if __name__ == "__main__":
     # Loading the model
     print("Загрузка модели...")
-    extractor = ProductExtractor()
+    extractor = InferenceService()
     
     # Loading the data
     test_data = load_test_data()
