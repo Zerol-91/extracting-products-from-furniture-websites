@@ -24,6 +24,8 @@ COPY src/ ./src/
 COPY scripts/ ./scripts/
 COPY data/ ./data/ 
 
+RUN echo "=== Checking src/core content ===" && ls -la src/core
+
 # 8. Training during container assembly
 # Result (папка models/final_model) remains into the image.
 RUN python -m scripts.research.train
