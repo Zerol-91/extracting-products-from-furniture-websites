@@ -8,7 +8,7 @@ from transformers import (
     DataCollatorForTokenClassification,
     AutoTokenizer
 )
-from src.data_processor import prepare_datasets, MODEL_CHECKPOINT, LABEL_LIST
+from scripts.research.data_processor import prepare_datasets, MODEL_CHECKPOINT, LABEL_LIST
 
 def compute_metrics(p):
     """
@@ -76,13 +76,19 @@ def main():
     # Hyperparameters
     args = TrainingArguments(
         output_dir="models/checkpoint",
-        eval_strategy="epoch",     
+        eval_strategy="epoch",
+        save_strategy="epoch",     
         learning_rate=1e-4,
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,
         num_train_epochs=15,
         weight_decay=0.005,
-        save_strategy="no",
+
+        load_best_model_at_end=True, # load the epoch where the metric was best
+        metric_for_best_model="f1",
+        greater_is_better=True, 
+        save_total_limit=1,
+
         report_to="none"
     )
 
