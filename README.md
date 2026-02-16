@@ -93,8 +93,8 @@ Strict exact-match metrics are often too harsh for NER tasks in e-commerce (e.g.
 **Clone the repository:**
 
 ```Bash
-git clone [https://github.com/YOUR_USERNAME/furniture-project.git](https://github.com/YOUR_USERNAME/furniture-project.git)
-cd furniture-project
+git clone https://github.com/Zerol-91/extracting-products-from-furniture-websites.git
+cd extracting-products-from-furniture-websites
 ```
 
 ### Option A: Using Docker (Recommended)
@@ -171,5 +171,6 @@ furniture-project/
     Active Learning: Create a pipeline where user feedback in the UI retrains the model.
 
     Hardware Acceleration: Deploy on GPU instances for faster inference (ONNX Runtime).
+
 
 
